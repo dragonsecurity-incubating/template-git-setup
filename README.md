@@ -115,6 +115,7 @@ Or manually for each runner:
 
 # Register runner1
 docker compose exec runner1 forgejo-runner register \
+  --no-interactive \
   --instance https://your-domain.com \
   --token YOUR_REGISTRATION_TOKEN \
   --name runner1 \
@@ -122,6 +123,7 @@ docker compose exec runner1 forgejo-runner register \
 
 # Register runner2
 docker compose exec runner2 forgejo-runner register \
+  --no-interactive \
   --instance https://your-domain.com \
   --token YOUR_REGISTRATION_TOKEN \
   --name runner2 \
