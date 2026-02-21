@@ -1,0 +1,26 @@
+# Forgejo Setup - Ignore files
+
+# Runner directories (contain sensitive tokens and config)
+runners/
+
+# Docker volumes and data
+*.tar.gz
+*_backup.tar.gz
+
+# Temporary files
+*.tmp
+*.swp
+*~
+
+# Environment files (if used for secrets)
+.env
+.env.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.iml
