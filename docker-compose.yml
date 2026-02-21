@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:18
+    image: postgres:18@sha256:b6b4d0b75c699a2c94dfc5a94fe09f38630f3b67ab0e1653ede1b7ac8e13c197
     container_name: forgejo-postgres
     restart: unless-stopped
     environment:
@@ -59,7 +59,7 @@ services:
       - forgejo_net
 
   caddy:
-    image: caddy:2
+    image: caddy:2@sha256:c3d7ee5d2b11f9dc54f947f68a734c84e9c9666c92c88a7f30b9cba5da182adb
     container_name: forgejo-caddy
     restart: unless-stopped
     depends_on:
@@ -76,7 +76,7 @@ services:
 
   # Runner 1: Docker engine for job containers
   dind-runner1:
-    image: docker:dind
+    image: docker:dind@sha256:8bcbad4b45f0bff9d3e809d85a7ac589390f0be8acbc526850c998c35c1243fd
     container_name: forgejo-dind-runner1
     privileged: true
     restart: unless-stopped
@@ -103,7 +103,7 @@ services:
 
   # Runner 2
   dind-runner2:
-    image: docker:dind
+    image: docker:dind@sha256:8bcbad4b45f0bff9d3e809d85a7ac589390f0be8acbc526850c998c35c1243fd
     container_name: forgejo-dind-runner2
     privileged: true
     restart: unless-stopped
