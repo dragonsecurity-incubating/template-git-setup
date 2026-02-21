@@ -111,6 +111,7 @@ echo "Registering runner '$RUNNER_NAME'..."
 echo ""
 
 docker compose exec -T $RUNNER_NAME forgejo-runner register \
+    --no-interactive \
     --instance "$FORGEJO_URL" \
     --token "$REG_TOKEN" \
     --name "$RUNNER_NAME" \
