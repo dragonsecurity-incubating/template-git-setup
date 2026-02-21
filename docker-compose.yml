@@ -1,0 +1,139 @@
+services:
+  postgres:
+    image: postgres:18
+    container_name: forgejo-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: forgejo
+      POSTGRES_USER: forgejo
+      POSTGRES_PASSWORD: change_me_strong_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/18/docker
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U forgejo -d forgejo"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - forgejo_net
+
+  forgejo:
+    image: codeberg.org/forgejo/forgejo:13
+    container_name: forgejo
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Database
+      FORGEJO__database__DB_TYPE: postgres
+      FORGEJO__database__HOST: postgres:5432
+      FORGEJO__database__NAME: forgejo
+      FORGEJO__database__USER: forgejo
+      FORGEJO__database__PASSWD: change_me_strong_password
+
+      # Server / reverse proxy
+      # IMPORTANT: set these to your real domain
+      FORGEJO__server__DOMAIN: git.example.com
+      FORGEJO__server__ROOT_URL: https://git.example.com/
+      FORGEJO__server__PROTOCOL: http
+
+      # Let Forgejo know it's behind a proxy (usually fine without, but helps)
+      FORGEJO__server__ENABLE_GZIP: "true"
+
+      # SSH (Caddy does NOT proxy SSH)
+      FORGEJO__server__START_SSH_SERVER: "false"
+      FORGEJO__server__DISABLE_SSH: "false"
+      FORGEJO__server__SSH_DOMAIN: git.example.com
+      FORGEJO__server__SSH_PORT: 2222
+      FORGEJO__server__SSH_LISTEN_PORT: 22
+    expose:
+      - "3000"  # only to other containers
+    ports:
+      - "2222:22" # SSH for git over ssh
+    volumes:
+      - forgejo_data:/data
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - forgejo_net
+
+  caddy:
+    image: caddy:2
+    container_name: forgejo-caddy
+    restart: unless-stopped
+    depends_on:
+      - forgejo
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - forgejo_net
+
+  # Runner 1: Docker engine for job containers
+  dind-runner1:
+    image: docker:dind
+    container_name: forgejo-dind-runner1
+    privileged: true
+    restart: unless-stopped
+    command: ["dockerd", "-H", "tcp://0.0.0.0:2375", "--tls=false"]
+    networks:
+      - forgejo_net
+
+  runner1:
+    image: data.forgejo.org/forgejo/runner:11
+    container_name: forgejo-runner1
+    restart: unless-stopped
+    depends_on:
+      dind-runner1:
+        condition: service_started
+    environment:
+      DOCKER_HOST: tcp://dind-runner1:2375
+    user: "1001:1001"
+    volumes:
+      - ./runners/runner1:/data
+    # command: '/bin/sh -c "while : ; do sleep 1 ; done"' # first boot: keep it idle so you can exec in and register it
+    command: '/bin/sh -c "sleep 5; forgejo-runner daemon --config /data/config.yml"'
+    networks:
+      - forgejo_net
+
+  # Runner 2
+  dind-runner2:
+    image: docker:dind
+    container_name: forgejo-dind-runner2
+    privileged: true
+    restart: unless-stopped
+    command: ["dockerd", "-H", "tcp://0.0.0.0:2375", "--tls=false"]
+    networks:
+      - forgejo_net
+
+  runner2:
+    image: data.forgejo.org/forgejo/runner:11
+    container_name: forgejo-runner2
+    restart: unless-stopped
+    depends_on:
+      dind-runner2:
+        condition: service_started
+    environment:
+      DOCKER_HOST: tcp://dind-runner2:2375
+    user: "1001:1001"
+    volumes:
+      - ./runners/runner2:/data
+    # command: '/bin/sh -c "while : ; do sleep 1 ; done"' # pre registration
+
+    command: '/bin/sh -c "sleep 5; forgejo-runner daemon --config /data/config.yml"' # post registration
+    networks:
+      - forgejo_net
+
+networks:
+  forgejo_net:
+
+volumes:
+  postgres_data:
+  forgejo_data:
+  caddy_data:
+  caddy_config:
