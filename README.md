@@ -106,6 +106,10 @@ After Forgejo is running, register the runners to enable CI/CD:
 ./register-runner.sh runner2
 ```
 
+The registration process creates two files for each runner:
+- `.runner` - Contains registration token and instance information (created by `register`)
+- `config.yml` - Contains runner configuration and settings (created by `generate-config`)
+
 Or manually for each runner:
 
 ```bash
@@ -121,6 +125,9 @@ docker compose exec runner1 forgejo-runner register \
   --name runner1 \
   --labels docker:docker://node:20,ubuntu-latest:docker://catthehacker/ubuntu:act-latest
 
+# Generate config.yml for runner1
+docker compose exec runner1 forgejo-runner generate-config > runners/runner1/config.yml
+
 # Register runner2
 docker compose exec runner2 forgejo-runner register \
   --no-interactive \
@@ -128,6 +135,9 @@ docker compose exec runner2 forgejo-runner register \
   --token YOUR_REGISTRATION_TOKEN \
   --name runner2 \
   --labels docker:docker://node:20,ubuntu-latest:docker://catthehacker/ubuntu:act-latest
+
+# Generate config.yml for runner2
+docker compose exec runner2 forgejo-runner generate-config > runners/runner2/config.yml
 
 # Restart runners to apply configuration
 docker compose restart runner1 runner2
@@ -144,9 +154,11 @@ template-git-setup/
 ├── start.sh               # Convenience script to start everything
 ├── runners/
 │   ├── runner1/           # Runner 1 configuration and data
-│   │   └── config.yml     # Created after registration
+│   │   ├── .runner        # Registration token (created by register)
+│   │   └── config.yml     # Runner config (created by generate-config)
 │   └── runner2/           # Runner 2 configuration and data
-│       └── config.yml     # Created after registration
+│       ├── .runner        # Registration token (created by register)
+│       └── config.yml     # Runner config (created by generate-config)
 └── README.md              # This file
 ```
 
