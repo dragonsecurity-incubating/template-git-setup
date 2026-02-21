@@ -18,7 +18,7 @@ services:
       - forgejo_net
 
   forgejo:
-    image: codeberg.org/forgejo/forgejo:13
+    image: codeberg.org/forgejo/forgejo:14@sha256:fa8ce5aba7c20e106c649e00da1f568e8f39c58f1706bcf4f6921f16aaf5ba48
     container_name: forgejo
     restart: unless-stopped
     depends_on:
