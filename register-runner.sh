@@ -126,29 +126,14 @@ if [ ! -f "runners/$RUNNER_NAME/.runner" ]; then
 fi
 
 echo ""
-echo "Generating runner configuration..."
+echo -e "${GREEN}✓${NC} Runner '$RUNNER_NAME' registered successfully!"
 echo ""
-
-# Generate config.yml
-docker compose exec -T $RUNNER_NAME forgejo-runner generate-config > "runners/$RUNNER_NAME/config.yml"
-
-# Check if config generation was successful
-if [ -f "runners/$RUNNER_NAME/config.yml" ]; then
-    echo ""
-    echo -e "${GREEN}✓${NC} Runner '$RUNNER_NAME' registered successfully!"
-    echo ""
-    echo "Configuration saved to: runners/$RUNNER_NAME/config.yml"
-    echo ""
-    echo "Restarting runner to apply configuration..."
-    docker compose restart $RUNNER_NAME
-    echo ""
-    echo -e "${GREEN}✓${NC} Runner '$RUNNER_NAME' is now active!"
-    echo ""
-    echo "You can verify the runner status at:"
-    echo "  ${FORGEJO_URL}/admin/actions/runners"
-else
-    echo ""
-    echo -e "${RED}✗${NC} Registration may have failed - config file not found"
-    echo "Check runner logs: docker compose logs $RUNNER_NAME"
-    exit 1
-fi
+echo "Registration file saved to: runners/$RUNNER_NAME/.runner"
+echo ""
+echo "Restarting runner to apply configuration..."
+docker compose restart $RUNNER_NAME
+echo ""
+echo -e "${GREEN}✓${NC} Runner '$RUNNER_NAME' is now active!"
+echo ""
+echo "You can verify the runner status at:"
+echo "  ${FORGEJO_URL}/admin/actions/runners"
