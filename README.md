@@ -19,14 +19,20 @@ This setup includes:
 
 ## Quick Start
 
-### 1. Clone the Repository
+### 1. Install Docker
+
+```bash
+curl -fsSL https://get.docker.com | sh
+```
+
+### 2. Clone the Repository
 
 ```bash
 git clone https://github.com/dragonsecurity-incubating/template-git-setup.git
 cd template-git-setup
 ```
 
-### 2. Configure Your Domain
+### 3. Configure Your Domain
 
 Edit the `docker-compose.yml` file and replace `git.example.com` with your actual domain:
 
@@ -45,7 +51,7 @@ your-domain.com {
 }
 ```
 
-### 3. Set Database Password
+### 4. Set Database Password
 
 Change the default PostgreSQL password in `docker-compose.yml`:
 
@@ -55,7 +61,7 @@ POSTGRES_PASSWORD: your_secure_password_here
 FORGEJO__database__PASSWD: your_secure_password_here
 ```
 
-### 4. Create Required Directories
+### 5. Create Required Directories
 
 Run the setup script to create directories with proper permissions:
 
@@ -71,7 +77,7 @@ sudo chown -R 1001:1001 runners/
 chmod -R 755 runners/
 ```
 
-### 5. Start the Services
+### 6. Start the Services
 
 ```bash
 docker compose up -d
@@ -83,7 +89,7 @@ Wait for all services to start (about 30 seconds). Check status:
 docker compose ps
 ```
 
-### 6. Initial Forgejo Configuration
+### 7. Initial Forgejo Configuration
 
 Visit your domain (e.g., `https://your-domain.com`) and complete the initial setup:
 
@@ -91,7 +97,7 @@ Visit your domain (e.g., `https://your-domain.com`) and complete the initial set
 2. Create your administrator account
 3. Configure any additional settings as needed
 
-### 7. Register the Runners
+### 8. Register the Runners
 
 After Forgejo is running, register the runners to enable CI/CD:
 
