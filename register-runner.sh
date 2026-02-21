@@ -117,7 +117,22 @@ docker compose exec -T $RUNNER_NAME forgejo-runner register \
     --name "$RUNNER_NAME" \
     $LABELS_ARG
 
-# Check if registration was successful
+# Check if registration created .runner file
+if [ ! -f "runners/$RUNNER_NAME/.runner" ]; then
+    echo ""
+    echo -e "${RED}✗${NC} Registration failed - .runner file not created"
+    echo "Check runner logs: docker compose logs $RUNNER_NAME"
+    exit 1
+fi
+
+echo ""
+echo "Generating runner configuration..."
+echo ""
+
+# Generate config.yml
+docker compose exec -T $RUNNER_NAME forgejo-runner generate-config > "runners/$RUNNER_NAME/config.yml"
+
+# Check if config generation was successful
 if [ -f "runners/$RUNNER_NAME/config.yml" ]; then
     echo ""
     echo -e "${GREEN}✓${NC} Runner '$RUNNER_NAME' registered successfully!"
