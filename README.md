@@ -106,6 +106,8 @@ After Forgejo is running, register the runners to enable CI/CD:
 ./register-runner.sh runner2
 ```
 
+The registration process creates a `.runner` file for each runner containing the registration token and instance information. The runner will use default settings unless you provide a custom `config.yml`.
+
 Or manually for each runner:
 
 ```bash
@@ -115,6 +117,7 @@ Or manually for each runner:
 
 # Register runner1
 docker compose exec runner1 forgejo-runner register \
+  --no-interactive \
   --instance https://your-domain.com \
   --token YOUR_REGISTRATION_TOKEN \
   --name runner1 \
@@ -122,6 +125,7 @@ docker compose exec runner1 forgejo-runner register \
 
 # Register runner2
 docker compose exec runner2 forgejo-runner register \
+  --no-interactive \
   --instance https://your-domain.com \
   --token YOUR_REGISTRATION_TOKEN \
   --name runner2 \
@@ -129,6 +133,13 @@ docker compose exec runner2 forgejo-runner register \
 
 # Restart runners to apply configuration
 docker compose restart runner1 runner2
+```
+
+**Optional**: To customize runner behavior, you can generate and edit a config file:
+```bash
+docker compose exec runner1 forgejo-runner generate-config > runners/runner1/config.yml
+# Edit runners/runner1/config.yml as needed
+docker compose restart runner1
 ```
 
 ## Directory Structure
@@ -142,9 +153,11 @@ template-git-setup/
 ├── start.sh               # Convenience script to start everything
 ├── runners/
 │   ├── runner1/           # Runner 1 configuration and data
-│   │   └── config.yml     # Created after registration
+│   │   ├── .runner        # Registration file (required)
+│   │   └── config.yml     # Optional custom config
 │   └── runner2/           # Runner 2 configuration and data
-│       └── config.yml     # Created after registration
+│       ├── .runner        # Registration file (required)
+│       └── config.yml     # Optional custom config
 └── README.md              # This file
 ```
 
@@ -226,7 +239,7 @@ runner3:
   user: "1001:1001"
   volumes:
     - ./runners/runner3:/data
-  command: '/bin/sh -c "sleep 5; forgejo-runner daemon --config /data/config.yml"'
+  command: '/bin/sh -c "sleep 5; if [ -f /data/.runner ]; then forgejo-runner daemon; else echo \"Waiting for registration...\"; while : ; do sleep 1 ; done; fi"'
   networks:
     - forgejo_net
 ```
@@ -258,7 +271,7 @@ You can customize labels during registration to support different environments.
 ### Runners not picking up jobs
 - Check runner logs: `docker compose logs runner1`
 - Verify runners are registered: Visit `https://your-domain.com/admin/actions/runners`
-- Ensure runner config exists: `ls -la runners/runner1/config.yml`
+- Ensure runner registration file exists: `ls -la runners/runner1/.runner`
 - Restart runners: `docker compose restart runner1 runner2`
 
 ### Permission issues with runners

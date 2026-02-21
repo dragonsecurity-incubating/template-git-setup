@@ -97,7 +97,7 @@ services:
     volumes:
       - ./runners/runner1:/data
     # command: '/bin/sh -c "while : ; do sleep 1 ; done"' # first boot: keep it idle so you can exec in and register it
-    command: '/bin/sh -c "sleep 5; forgejo-runner daemon --config /data/config.yml"'
+    command: '/bin/sh -c "sleep 5; if [ -f /data/.runner ]; then forgejo-runner daemon; else echo \"Waiting for registration...\"; while : ; do sleep 1 ; done; fi"'
     networks:
       - forgejo_net
 
@@ -125,7 +125,7 @@ services:
       - ./runners/runner2:/data
     # command: '/bin/sh -c "while : ; do sleep 1 ; done"' # pre registration
 
-    command: '/bin/sh -c "sleep 5; forgejo-runner daemon --config /data/config.yml"' # post registration
+    command: '/bin/sh -c "sleep 5; if [ -f /data/.runner ]; then forgejo-runner daemon; else echo \"Waiting for registration...\"; while : ; do sleep 1 ; done; fi"' # post registration
     networks:
       - forgejo_net
 

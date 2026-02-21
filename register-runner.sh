@@ -111,28 +111,29 @@ echo "Registering runner '$RUNNER_NAME'..."
 echo ""
 
 docker compose exec -T $RUNNER_NAME forgejo-runner register \
+    --no-interactive \
     --instance "$FORGEJO_URL" \
     --token "$REG_TOKEN" \
     --name "$RUNNER_NAME" \
     $LABELS_ARG
 
-# Check if registration was successful
-if [ -f "runners/$RUNNER_NAME/config.yml" ]; then
+# Check if registration created .runner file
+if [ ! -f "runners/$RUNNER_NAME/.runner" ]; then
     echo ""
-    echo -e "${GREEN}✓${NC} Runner '$RUNNER_NAME' registered successfully!"
-    echo ""
-    echo "Configuration saved to: runners/$RUNNER_NAME/config.yml"
-    echo ""
-    echo "Restarting runner to apply configuration..."
-    docker compose restart $RUNNER_NAME
-    echo ""
-    echo -e "${GREEN}✓${NC} Runner '$RUNNER_NAME' is now active!"
-    echo ""
-    echo "You can verify the runner status at:"
-    echo "  ${FORGEJO_URL}/admin/actions/runners"
-else
-    echo ""
-    echo -e "${RED}✗${NC} Registration may have failed - config file not found"
+    echo -e "${RED}✗${NC} Registration failed - .runner file not created"
     echo "Check runner logs: docker compose logs $RUNNER_NAME"
     exit 1
 fi
+
+echo ""
+echo -e "${GREEN}✓${NC} Runner '$RUNNER_NAME' registered successfully!"
+echo ""
+echo "Registration file saved to: runners/$RUNNER_NAME/.runner"
+echo ""
+echo "Restarting runner to apply configuration..."
+docker compose restart $RUNNER_NAME
+echo ""
+echo -e "${GREEN}✓${NC} Runner '$RUNNER_NAME' is now active!"
+echo ""
+echo "You can verify the runner status at:"
+echo "  ${FORGEJO_URL}/admin/actions/runners"
