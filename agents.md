@@ -95,7 +95,7 @@ template-git-setup/
 
 ### Updating Forgejo Version
 
-1. Change image tag in docker-compose.yml: `codeberg.org/forgejo/forgejo:XX`
+1. Change image tag in docker-compose.yml: `codeberg.org/forgejo/forgejo:XX` (note: Forgejo server uses codeberg.org registry, while runners use data.forgejo.org)
 2. Pull new image: `docker compose pull forgejo`
 3. Restart: `docker compose up -d forgejo`
 4. Check logs: `docker compose logs -f forgejo`
