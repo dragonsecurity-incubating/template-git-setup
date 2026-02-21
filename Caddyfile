@@ -1,0 +1,4 @@
+git.example.com {
+	encode zstd gzip
+	reverse_proxy forgejo:3000
+}
