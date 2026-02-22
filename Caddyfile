@@ -2,3 +2,20 @@ git.example.com {
 	encode zstd gzip
 	reverse_proxy forgejo:3000
 }
+
+mcp.example.com {
+	encode zstd gzip
+
+	# Pick ONE of these protections (or keep both)
+
+	# Option A: Basic auth (simple + good)
+	basicauth {
+		mcpuser $2a$14$uvmADpn9EbQDeD4.po82BOCzj.7Sfb09L9QMshIgPlqPpT3nJib1q
+	}
+
+	# Option B: IP allowlist (great if you only use it from home/office/VPN)
+	# @allowed remote_ip 203.0.113.10 198.51.100.0/24
+	# respond @allowed 403
+
+	reverse_proxy forgejo-mcp:8080
+}

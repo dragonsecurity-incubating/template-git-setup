@@ -10,9 +10,12 @@ This repository provides a production-ready Docker Compose setup for running **F
 - Caddy reverse proxy with automatic HTTPS
 - CI/CD runners (Docker-in-Docker) for Forgejo Actions
 - Renovate bot for automated dependency updates
+- Ollama for local LLM backend
+- AuditLM for AI-powered code auditing
+- Forgejo MCP for AI assistant integration
 - Setup and management scripts
 
-**Target users**: System administrators, DevOps engineers, and development teams who want to self-host their Git repositories with integrated CI/CD and automated dependency management.
+**Target users**: System administrators, DevOps engineers, and development teams who want to self-host their Git repositories with integrated CI/CD, automated dependency management, and AI-powered code analysis.
 
 ## Repository Structure
 
@@ -22,10 +25,13 @@ template-git-setup/
 ├── Caddyfile               # Caddy reverse proxy config
 ├── .env.example            # Template for environment variables
 ├── README.md               # User-facing documentation
+├── BOT_USERS.md            # Bot user configuration guide
 ├── agents.md               # This file - AI collaboration guide
 ├── setup-directories.sh    # Script to create runner directories
 ├── register-runner.sh      # Script to register runners with Forgejo
 ├── start.sh                # Convenience script to start services
+├── auditlm/                # AuditLM Dockerfile
+│   └── Dockerfile
 ├── runners/                # Runner configuration (created by setup)
 │   ├── runner1/
 │   └── runner2/
@@ -42,6 +48,9 @@ template-git-setup/
 - **Forgejo Actions**: CI/CD system (GitHub Actions compatible)
 - **Docker-in-Docker (dind)**: Enables runners to execute containerized jobs
 - **Renovate**: Automated dependency update bot
+- **Ollama**: Local LLM backend for running AI models
+- **AuditLM**: AI-powered code audit and security scanning tool
+- **Forgejo MCP**: Model Context Protocol server for AI assistant integration
 
 ## Architecture Overview
 
@@ -76,6 +85,27 @@ template-git-setup/
    - Runs on a schedule (every 10 minutes by default)
    - Requires bot user PAT and optional GitHub token
 
+7. **ollama**: Local LLM backend
+   - Runs AI models locally (e.g., Qwen, Llama, CodeLlama)
+   - Provides API endpoint for AuditLM
+   - Supports GPU acceleration (optional)
+   - No external API calls - all processing happens locally
+
+8. **auditlm**: AI-powered code auditing service
+   - Monitors repositories for new commits and PRs
+   - Analyzes code for security vulnerabilities and quality issues
+   - Uses Ollama for AI inference
+   - Creates sandboxed Docker containers for analysis
+   - Posts findings as PR comments or issues
+   - Requires Docker socket access for container creation
+
+9. **forgejo-mcp**: Model Context Protocol server
+   - Provides MCP-compliant API for AI assistants
+   - Read-only access to repositories, users, and organizations
+   - Exposed on separate subdomain (mcp.example.com)
+   - Protected by basic auth or IP allowlist
+   - Used by Claude Desktop, Cursor, and other AI coding tools
+
 ### Networks & Volumes
 
 - **forgejo_net**: Internal network for service communication
@@ -84,6 +114,7 @@ template-git-setup/
 - **caddy_data**: Persistent Caddy data (certificates)
 - **caddy_config**: Persistent Caddy configuration
 - **renovate_cache**: Persistent Renovate cache (reduces API calls)
+- **ollama_data**: Persistent Ollama data (downloaded AI models)
 
 ## Common Tasks
 
@@ -138,6 +169,74 @@ Key configuration options:
 - `prConcurrentLimit`: Max open PRs at once
 - `schedule`: When to run scans (cron-like syntax)
 
+### Configuring Bot Users
+
+All AI services require separate bot user accounts with specific permissions:
+
+1. **Create bot users in Forgejo**:
+   - `renovate-bot`: For Renovate service
+   - `auditlm-bot`: For AuditLM service
+   - `mcp-bot`: For Forgejo MCP service
+
+2. **Generate Personal Access Tokens**:
+   - Each bot user needs a PAT with appropriate scopes
+   - See `BOT_USERS.md` for detailed permission requirements
+
+3. **Add tokens to .env**:
+   ```bash
+   RENOVATE_TOKEN=renovate_bot_token_here
+   AUDITLM_TOKEN=auditlm_bot_token_here
+   FORGEJO_MCP_TOKEN=mcp_bot_token_here
+   RENOVATE_GITHUB_TOKEN=github_token_here
+   ```
+
+4. **Grant repository access**:
+   - Add bot users as collaborators to repositories
+   - Or add to organization teams with appropriate access levels
+
+### Managing Ollama Models
+
+1. **List installed models**:
+   ```bash
+   docker exec -it forgejo-ollama ollama list
+   ```
+
+2. **Download a model**:
+   ```bash
+   docker exec -it forgejo-ollama ollama pull qwen2.5-coder:7b-instruct
+   ```
+
+3. **Remove a model**:
+   ```bash
+   docker exec -it forgejo-ollama ollama rm model-name
+   ```
+
+4. **Switch AuditLM model**:
+   - Edit `docker-compose.yml` auditlm service
+   - Update `--model` parameter
+   - Restart: `docker compose restart auditlm`
+
+### Configuring MCP Security
+
+1. **Generate basic auth password**:
+   ```bash
+   docker run --rm caddy caddy hash-password --plaintext 'your-password'
+   ```
+
+2. **Update Caddyfile**:
+   - Replace the bcrypt hash in the `basicauth` block
+   - Or configure IP allowlisting instead
+
+3. **Restart Caddy**:
+   ```bash
+   docker compose restart caddy
+   ```
+
+4. **Test MCP endpoint**:
+   ```bash
+   curl -u mcpuser:your-password https://mcp.example.com/health
+   ```
+
 ### Troubleshooting Common Issues
 
 1. **Runner not picking up jobs**:
@@ -161,6 +260,26 @@ Key configuration options:
    - Ensure tokens are set in `.env`
    - Check `RENOVATE_ENDPOINT` matches Forgejo URL
    - Verify renovate/config.js exists and is valid
+
+5. **Ollama model not found**:
+   - List models: `docker exec -it forgejo-ollama ollama list`
+   - Download model: `docker exec -it forgejo-ollama ollama pull model-name`
+   - Check logs: `docker compose logs ollama`
+   - Ensure sufficient disk space for model downloads
+
+6. **AuditLM not analyzing code**:
+   - Verify Ollama has required model: `docker exec -it forgejo-ollama ollama list`
+   - Check Docker socket permissions: `ls -la /var/run/docker.sock`
+   - Ensure bot user has repo access
+   - Review logs: `docker compose logs auditlm`
+   - Verify `AUDITLM_TOKEN` is set in `.env`
+
+7. **MCP authentication failing**:
+   - Verify basic auth credentials match Caddyfile
+   - Test from server: `curl http://localhost:8080/health`
+   - Check MCP is running: `docker compose ps forgejo-mcp`
+   - Review Caddy logs: `docker compose logs caddy`
+   - Ensure `FORGEJO_MCP_TOKEN` is set in `.env`
 
 ## Development Guidelines
 
@@ -250,11 +369,17 @@ Key configuration options:
 - [Docker Compose Reference](https://docs.docker.com/compose/compose-file/)
 - [Caddy Documentation](https://caddyserver.com/docs/)
 - [Docker-in-Docker Considerations](https://hub.docker.com/_/docker)
+- [Ollama Documentation](https://github.com/ollama/ollama)
+- [Ollama Model Library](https://ollama.com/library)
+- [AuditLM GitHub Repository](https://github.com/ellenhp/auditlm)
+- [Forgejo MCP Server](https://github.com/ronmi/forgejo-mcp)
+- [Model Context Protocol Specification](https://modelcontextprotocol.io/)
 
 ## Version History
 
 - **2024**: Initial setup with Forgejo 13, PostgreSQL 18, 2 runners
 - **2026**: Updated to Forgejo 14, added Renovate bot, enabled package registry
+- **2026-02**: Added AI/LLM services: Ollama, AuditLM, Forgejo MCP; separate bot users with least-privilege permissions
 - Document created for AI collaboration with comprehensive technical context
 
 ---

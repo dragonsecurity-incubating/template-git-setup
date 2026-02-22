@@ -10,6 +10,9 @@ This setup includes:
 - **Caddy**: Automatic HTTPS reverse proxy
 - **2 CI/CD Runners**: Docker-in-Docker runners for running workflows
 - **Renovate**: Automated dependency updates (optional)
+- **Ollama**: Local LLM backend for AI-powered tools (optional)
+- **AuditLM**: AI-powered code audit and security scanning (optional)
+- **Forgejo MCP**: Model Context Protocol server for AI assistant integration (optional)
 
 ## Prerequisites
 
@@ -359,6 +362,282 @@ Renovate supports many package managers and dependency types:
 
 For a complete list, see the [Renovate documentation](https://docs.renovatebot.com/modules/manager/).
 
+## AI-Powered Services (Optional)
+
+This setup includes three optional AI-powered services for code analysis, security auditing, and AI assistant integration. These services work together to provide intelligent code review and programmatic access to your Forgejo instance.
+
+### Ollama - Local LLM Backend
+
+**Ollama** provides a local large language model (LLM) backend that powers the AuditLM service. It runs AI models locally without sending your code to external services.
+
+**Features**:
+- Run AI models locally on your infrastructure
+- Supports various open-source models (Qwen, Llama, Mistral, etc.)
+- Optional GPU acceleration for faster inference
+- No external API calls or data sharing
+
+**Setup**:
+
+1. The Ollama service is included in `docker-compose.yml` and will start automatically
+2. Download the required model for AuditLM:
+   ```bash
+   docker exec -it forgejo-ollama ollama pull qwen2.5-coder:7b-instruct
+   ```
+3. Wait for the model to download (may take several minutes depending on model size)
+
+**GPU Acceleration** (optional):
+
+If you have an NVIDIA GPU, add this to the ollama service in `docker-compose.yml`:
+```yaml
+ollama:
+  image: ollama/ollama:latest
+  runtime: nvidia
+  environment:
+    - NVIDIA_VISIBLE_DEVICES=all
+  # ... rest of config
+```
+
+**Available Models**:
+- `qwen2.5-coder:7b-instruct` - Default, optimized for code (7GB)
+- `codellama:7b` - Meta's code-focused model (3.8GB)
+- `deepseek-coder:6.7b` - Specialized for code generation (3.8GB)
+- See [Ollama library](https://ollama.com/library) for more models
+
+**Manage Models**:
+```bash
+# List downloaded models
+docker exec -it forgejo-ollama ollama list
+
+# Pull a different model
+docker exec -it forgejo-ollama ollama pull codellama:7b
+
+# Remove a model
+docker exec -it forgejo-ollama ollama rm qwen2.5-coder:7b-instruct
+```
+
+### AuditLM - AI-Powered Code Auditing
+
+**AuditLM** automatically analyzes your code for security vulnerabilities, code quality issues, and best practice violations using AI. It reviews pull requests and commits, then posts findings as comments or issues.
+
+**Features**:
+- AI-powered security vulnerability detection
+- Code quality and best practice analysis
+- Automated PR reviews with inline comments
+- Sandboxed analysis in Docker containers
+- Customizable analysis environments
+
+**Setup**:
+
+1. **Create a bot user** in Forgejo:
+   - Username: `auditlm-bot` (recommended)
+   - Generate a Personal Access Token with scopes: `repo`, `write:issue`
+   - See [BOT_USERS.md](BOT_USERS.md) for detailed instructions
+
+2. **Configure environment variables**:
+   ```bash
+   # Add to .env file
+   AUDITLM_TOKEN=your_auditlm_bot_pat_here
+   ```
+
+3. **Customize analysis** (optional):
+   Edit the auditlm service in `docker-compose.yml`:
+   ```yaml
+   auditlm:
+     command: >
+       forgejo
+       --model "qwen2.5-coder:7b-instruct"  # AI model to use
+       --socket "/var/run/docker.sock"
+       --base-url "http://ollama:11434/v1"
+       --forgejo-url "https://your-domain.com"
+       --image "rust:1-trixie"  # Analysis container image
+   ```
+
+4. **Grant repository access**:
+   - Add `auditlm-bot` as a collaborator to repositories you want audited
+   - Or add the bot to an organization team with appropriate access
+
+5. **Start the service**:
+   ```bash
+   docker compose up -d auditlm
+   ```
+
+**How It Works**:
+1. AuditLM monitors your Forgejo instance for new commits and PRs
+2. When triggered, it pulls the code into a sandboxed Docker container
+3. The AI model analyzes the code for issues
+4. Results are posted as PR review comments or GitHub issues
+5. The analysis container is cleaned up after each run
+
+**Supported Languages**:
+- Change the `--image` parameter to match your project's language
+- Examples: `node:20-alpine`, `python:3.11-slim`, `golang:1.21`, `openjdk:17`
+- The image should have necessary build tools for your project
+
+**Troubleshooting**:
+```bash
+# Check AuditLM logs
+docker compose logs -f auditlm
+
+# Verify Ollama model is available
+docker exec -it forgejo-ollama ollama list
+
+# Check Docker socket permissions
+ls -la /var/run/docker.sock
+
+# Restart AuditLM
+docker compose restart auditlm
+```
+
+### Forgejo MCP - AI Assistant Integration
+
+**Forgejo MCP** (Model Context Protocol) provides a standardized API for AI coding assistants to access your Forgejo repositories, users, and organizations. This enables AI assistants like Claude Desktop, Cursor, and GitHub Copilot to work directly with your self-hosted Git service.
+
+**Features**:
+- MCP-compliant API for AI assistant integration
+- Read-only access to repositories (configurable)
+- Query users and organizations
+- Secure authentication via basic auth or IP allowlist
+- Separate subdomain with SSL
+
+**Setup**:
+
+1. **Create a bot user** in Forgejo:
+   - Username: `mcp-bot` (recommended)
+   - Generate a Personal Access Token with scopes: `repo` (read), `read:user`, `read:organization`
+   - See [BOT_USERS.md](BOT_USERS.md) for detailed instructions
+
+2. **Configure environment variables**:
+   ```bash
+   # Add to .env file
+   FORGEJO_MCP_TOKEN=your_mcp_bot_pat_here
+   ```
+
+3. **Configure the MCP subdomain**:
+   Edit `Caddyfile` to replace `mcp.example.com` with your actual subdomain:
+   ```
+   mcp.your-domain.com {
+       encode zstd gzip
+       basicauth {
+           mcpuser $2a$14$...  # See security section below
+       }
+       reverse_proxy forgejo-mcp:8080
+   }
+   ```
+
+4. **Set up DNS**:
+   - Create an A record for `mcp.your-domain.com` pointing to your server
+   - Caddy will automatically obtain an SSL certificate
+
+5. **Grant repository access**:
+   - Add `mcp-bot` as a read-only collaborator to repositories you want accessible via MCP
+   - Or add the bot to an organization with read-only access
+
+6. **Start the service**:
+   ```bash
+   docker compose up -d forgejo-mcp
+   ```
+
+**Security Configuration**:
+
+The MCP endpoint should be protected since it provides API access to your repositories. Two options are provided:
+
+**Option A: Basic Authentication** (recommended for most users):
+```bash
+# Generate a new password hash
+docker run --rm caddy caddy hash-password --plaintext 'your-secure-password'
+
+# Update Caddyfile with the hash
+basicauth {
+    mcpuser $2a$14$YOUR_HASHED_PASSWORD_HERE
+}
+```
+
+**Option B: IP Allowlist** (for static IPs):
+```
+# Uncomment and edit in Caddyfile
+@allowed remote_ip 203.0.113.10 198.51.100.0/24
+abort @allowed
+```
+
+**Using MCP with AI Assistants**:
+
+1. **Claude Desktop**:
+   Add to your Claude Desktop config:
+   ```json
+   {
+     "mcpServers": {
+       "forgejo": {
+         "url": "https://mcp.your-domain.com/",
+         "auth": {
+           "type": "basic",
+           "username": "mcpuser",
+           "password": "your-password"
+         }
+       }
+     }
+   }
+   ```
+
+2. **Cursor / VS Code**:
+   Configure MCP endpoint in settings with authentication
+
+3. **Test connection**:
+   ```bash
+   curl -u mcpuser:your-password https://mcp.your-domain.com/health
+   ```
+
+**Troubleshooting**:
+```bash
+# Check MCP logs
+docker compose logs -f forgejo-mcp
+
+# Test without auth (from server)
+curl http://localhost:8080/health
+
+# Check Caddy is routing correctly
+docker compose logs caddy
+
+# Verify bot has repo access in Forgejo UI
+```
+
+### Bot User Management
+
+All three AI services require separate bot user accounts in Forgejo with specific permissions. This follows security best practices by:
+- Limiting each bot to only the permissions it needs
+- Making it easy to revoke access if needed
+- Providing clear audit trails of bot activity
+
+**Summary**:
+
+| Bot User | Service | Required Scopes | Can Write? |
+|----------|---------|-----------------|------------|
+| `renovate-bot` | Renovate | `repo`, `write:package` | Yes |
+| `auditlm-bot` | AuditLM | `repo`, `write:issue` | Yes |
+| `mcp-bot` | Forgejo MCP | `repo` (read), `read:user`, `read:organization` | No |
+
+**For detailed setup instructions**, see [BOT_USERS.md](BOT_USERS.md).
+
+### Disabling AI Services
+
+If you don't want to use the AI services:
+
+1. **Don't create bot users or tokens** - Services will fail to authenticate
+2. **Comment out services** in `docker-compose.yml`:
+   ```yaml
+   # ollama:
+   #   ...
+   # auditlm:
+   #   ...
+   # forgejo-mcp:
+   #   ...
+   ```
+3. **Or stop individual services**:
+   ```bash
+   docker compose stop ollama auditlm forgejo-mcp
+   ```
+
+The core Forgejo, PostgreSQL, Caddy, and Runner services will work independently.
+
 ## Runners
 
 ### Adding More Runners
@@ -491,13 +770,17 @@ For other package types, see the [Forgejo Packages documentation](https://forgej
 
 - **Change default passwords** in `docker-compose.yml`
 - **Protect your .env file**: Never commit it to git (it's in .gitignore)
-- **Secure your tokens**: Use strong, unique tokens for Renovate
+- **Secure your tokens**: Use strong, unique tokens for each bot service
+- **Use separate bot accounts**: Never share tokens between services (see [BOT_USERS.md](BOT_USERS.md))
+- **Protect MCP endpoint**: Use basic auth or IP allowlisting for the MCP service
+- **Limit bot permissions**: Each bot should have minimal permissions required (principle of least privilege)
 - Keep Docker and all images up to date
 - Consider using Docker secrets for sensitive data in production
 - Restrict PostgreSQL access to the Forgejo network only (already configured)
 - Review Forgejo's security settings in the admin panel
 - Consider enabling 2FA for administrator accounts
-- Limit Renovate bot permissions to only repositories it needs to update
+- Regularly review bot user activity in audit logs
+- **AuditLM Docker socket**: Be aware that AuditLM has access to Docker socket for sandboxed analysis
 
 ## Contributing
 
@@ -511,5 +794,12 @@ See the LICENSE file for details.
 
 - [Forgejo Documentation](https://forgejo.org/docs/latest/)
 - [Forgejo Actions (CI/CD) Documentation](https://forgejo.org/docs/latest/user/actions/)
+- [Forgejo Packages Documentation](https://forgejo.org/docs/latest/user/packages/)
+- [Renovate Documentation](https://docs.renovatebot.com/)
 - [Caddy Documentation](https://caddyserver.com/docs/)
 - [Docker Compose Documentation](https://docs.docker.com/compose/)
+- [Ollama Documentation](https://github.com/ollama/ollama)
+- [Ollama Model Library](https://ollama.com/library)
+- [AuditLM GitHub Repository](https://github.com/ellenhp/auditlm)
+- [Forgejo MCP Server](https://github.com/ronmi/forgejo-mcp)
+- [Model Context Protocol Specification](https://modelcontextprotocol.io/)
