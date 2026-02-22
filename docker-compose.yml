@@ -163,7 +163,7 @@ services:
       --model "qwen2.5-coder:7b-instruct"
       --socket "/var/run/docker.sock"
       --base-url "http://ollama:11434/v1"
-      --forgejo-url "https://git.example.com"
+      --forgejo-url "http://forgejo:3000"
       --image "rust:1-trixie"
     networks:
       - forgejo_net
@@ -176,13 +176,13 @@ services:
       - forgejo
     environment:
       FORGEJOMCP_TOKEN: "${FORGEJO_MCP_TOKEN}"
-      FORGEJOMCP_SERVER: "https://git.example.com"
+      FORGEJOMCP_SERVER: "http://forgejo:3000"
     expose:
       - "8080"
     command: >
       http
       --address :8080
-      --server https://git.example.com
+      --server http://forgejo:3000
     networks:
       - forgejo_net
 
