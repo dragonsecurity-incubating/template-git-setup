@@ -9,6 +9,7 @@ This setup includes:
 - **PostgreSQL**: Database backend
 - **Caddy**: Automatic HTTPS reverse proxy
 - **2 CI/CD Runners**: Docker-in-Docker runners for running workflows
+- **Renovate**: Automated dependency updates (optional)
 
 ## Prerequisites
 
@@ -61,7 +62,45 @@ POSTGRES_PASSWORD: your_secure_password_here
 FORGEJO__database__PASSWD: your_secure_password_here
 ```
 
-### 5. Create Required Directories
+### 5. Configure Renovate (Optional)
+
+Renovate automatically creates pull requests to update dependencies in your repositories. To enable it:
+
+1. **Create a bot user in Forgejo**:
+   - Register a new user account (e.g., "renovate-bot")
+   - Generate a Personal Access Token (PAT) for this user
+   - Go to: Settings → Applications → Generate New Token
+   - Required scopes: `repo` (full control of repositories)
+
+2. **Create a GitHub Personal Access Token** (for fetching release notes):
+   - Go to: https://github.com/settings/tokens
+   - Generate a new token (classic)
+   - Required scopes: `public_repo` (or `repo` for private repos)
+
+3. **Configure environment variables**:
+   ```bash
+   cp .env.example .env
+   # Edit .env and add your tokens:
+   # RENOVATE_TOKEN=your_forgejo_bot_pat
+   # RENOVATE_GITHUB_TOKEN=your_github_pat
+   ```
+
+4. **Update domain in docker-compose.yml**:
+   ```yaml
+   # In the renovate service section:
+   RENOVATE_ENDPOINT: "https://your-domain.com/api/v1"
+   RENOVATE_GIT_AUTHOR: "Renovate Bot <renovate-bot@your-domain.com>"
+   GIT_AUTHOR_EMAIL: "renovate-bot@your-domain.com"
+   GIT_COMMITTER_EMAIL: "renovate-bot@your-domain.com"
+   ```
+
+5. **Customize Renovate configuration** (optional):
+   - Edit `renovate/config.js` to adjust behavior
+   - See [Renovate docs](https://docs.renovatebot.com/) for options
+
+**Note**: If you don't want to use Renovate, you can disable it by commenting out the `renovate` service in `docker-compose.yml` or simply not creating the `.env` file with tokens.
+
+### 6. Create Required Directories
 
 Run the setup script to create directories with proper permissions:
 
@@ -72,12 +111,12 @@ Run the setup script to create directories with proper permissions:
 Or manually:
 
 ```bash
-mkdir -p runners/runner1 runners/runner2
+mkdir -p runners/runner1 runners/runner2 renovate
 sudo chown -R 1001:1001 runners/
 chmod -R 755 runners/
 ```
 
-### 6. Start the Services
+### 7. Start the Services
 
 ```bash
 docker compose up -d
@@ -89,7 +128,7 @@ Wait for all services to start (about 30 seconds). Check status:
 docker compose ps
 ```
 
-### 7. Initial Forgejo Configuration
+### 8. Initial Forgejo Configuration
 
 Visit your domain (e.g., `https://your-domain.com`) and complete the initial setup:
 
@@ -97,7 +136,7 @@ Visit your domain (e.g., `https://your-domain.com`) and complete the initial set
 2. Create your administrator account
 3. Configure any additional settings as needed
 
-### 8. Register the Runners
+### 9. Register the Runners
 
 After Forgejo is running, register the runners to enable CI/CD:
 
@@ -148,6 +187,7 @@ docker compose restart runner1
 template-git-setup/
 ├── docker-compose.yml      # Main Docker Compose configuration
 ├── Caddyfile              # Caddy reverse proxy configuration
+├── .env.example           # Template for environment variables
 ├── setup-directories.sh   # Script to create required directories
 ├── register-runner.sh     # Script to register runners
 ├── start.sh               # Convenience script to start everything
@@ -158,6 +198,8 @@ template-git-setup/
 │   └── runner2/           # Runner 2 configuration and data
 │       ├── .runner        # Registration file (required)
 │       └── config.yml     # Optional custom config
+├── renovate/
+│   └── config.js          # Renovate configuration
 └── README.md              # This file
 ```
 
@@ -201,6 +243,7 @@ Important data locations:
 - **Forgejo data**: Docker volume `forgejo_data`
 - **PostgreSQL data**: Docker volume `postgres_data`
 - **Runner configs**: `./runners/runner1/` and `./runners/runner2/`
+- **Renovate cache**: Docker volume `renovate_cache`
 
 ```bash
 # Backup volumes
@@ -210,6 +253,111 @@ docker run --rm -v template-git-setup_postgres_data:/data -v $(pwd):/backup ubun
 # Backup runner configs
 tar czf runner_configs_backup.tar.gz runners/
 ```
+
+## Renovate - Automated Dependency Updates
+
+Renovate automatically scans your repositories for outdated dependencies and creates pull requests to update them. This keeps your projects secure and up-to-date with minimal manual effort.
+
+### How Renovate Works
+
+1. **Periodic Scanning**: Renovate runs on a schedule (every 10 minutes by default in this setup)
+2. **Autodiscovery**: It automatically finds all repositories the bot user has access to
+3. **Dependency Detection**: Detects dependencies in various file formats (package.json, Dockerfile, etc.)
+4. **Pull Request Creation**: Creates PRs with dependency updates
+5. **Release Notes**: Fetches changelogs from GitHub (requires GITHUB_TOKEN)
+
+### Configuring Renovate Behavior
+
+Edit `renovate/config.js` to customize Renovate's behavior:
+
+```javascript
+module.exports = {
+  platform: 'forgejo',
+  endpoint: 'https://git.example.com/api/v1',
+  autodiscover: true,
+  onboarding: true,  // Creates an initial PR to configure Renovate per-repo
+  prHourlyLimit: 2,  // Max PRs per hour to avoid spam
+  prConcurrentLimit: 10,  // Max open PRs at once
+  
+  // Schedule when Renovate runs (optional)
+  // schedule: ['after 10pm every weekday', 'before 5am every weekday', 'every weekend'],
+  
+  // Automerge options (optional)
+  // automerge: true,
+  // automergeType: 'pr',
+  
+  // Group updates (optional)
+  // packageRules: [
+  //   {
+  //     groupName: 'all non-major dependencies',
+  //     groupSlug: 'all-minor-patch',
+  //     matchPackagePatterns: ['*'],
+  //     matchUpdateTypes: ['minor', 'patch'],
+  //   },
+  // ],
+  
+  hostRules: [
+    {
+      matchHost: 'github.com',
+      token: process.env.RENOVATE_GITHUB_TOKEN,
+    },
+    {
+      matchHost: 'api.github.com',
+      token: process.env.RENOVATE_GITHUB_TOKEN,
+    },
+  ],
+};
+```
+
+### Per-Repository Configuration
+
+After Renovate creates the onboarding PR in a repository, you can customize its behavior per-repository by editing the `renovate.json` file:
+
+```json
+{
+  "extends": ["config:base"],
+  "packageRules": [
+    {
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true
+    }
+  ]
+}
+```
+
+### Troubleshooting Renovate
+
+**Renovate not creating PRs:**
+- Check logs: `docker compose logs -f renovate`
+- Verify the bot user has access to repositories
+- Ensure tokens are correctly set in `.env`
+- Check that `RENOVATE_ENDPOINT` matches your Forgejo URL
+
+**GitHub rate limiting:**
+- Ensure `RENOVATE_GITHUB_TOKEN` is set
+- The token allows Renovate to fetch release notes without hitting rate limits
+
+**Adjusting scan frequency:**
+- Edit the `sleep` value in the renovate service command (docker-compose.yml)
+- Default is 600 seconds (10 minutes)
+- Example: Change to `sleep 3600` for hourly scans
+
+**Disable Renovate:**
+- Comment out the `renovate` service in docker-compose.yml, or
+- Stop it: `docker compose stop renovate`
+
+### Supported Dependency Types
+
+Renovate supports many package managers and dependency types:
+- **Docker**: Dockerfile, docker-compose.yml
+- **JavaScript/Node**: package.json, package-lock.json
+- **Python**: requirements.txt, Pipfile, pyproject.toml
+- **Go**: go.mod
+- **Ruby**: Gemfile
+- **Java**: pom.xml, build.gradle
+- **And many more...**
+
+For a complete list, see the [Renovate documentation](https://docs.renovatebot.com/modules/manager/).
 
 ## Runners
 
@@ -303,14 +451,53 @@ Then you can use standard git commands:
 git clone git@your-domain.com:username/repo.git
 ```
 
+## Package Registry
+
+Forgejo includes a built-in package registry that supports multiple package types:
+- **Container/Docker images**: `docker pull your-domain.com/owner/package:tag`
+- **npm packages**: JavaScript/Node.js packages
+- **PyPI packages**: Python packages
+- **Maven packages**: Java packages
+- **And more...**
+
+The package registry is enabled by default in this setup via:
+```yaml
+FORGEJO__packages__ENABLED: "true"
+FORGEJO__packages__CONTAINER__ENABLED: "true"
+```
+
+To use the container registry:
+
+1. **Login to the registry**:
+   ```bash
+   docker login your-domain.com
+   # Use your Forgejo username and password
+   ```
+
+2. **Tag and push images**:
+   ```bash
+   docker tag myimage:latest your-domain.com/username/myimage:latest
+   docker push your-domain.com/username/myimage:latest
+   ```
+
+3. **Pull images**:
+   ```bash
+   docker pull your-domain.com/username/myimage:latest
+   ```
+
+For other package types, see the [Forgejo Packages documentation](https://forgejo.org/docs/latest/user/packages/).
+
 ## Security Notes
 
 - **Change default passwords** in `docker-compose.yml`
+- **Protect your .env file**: Never commit it to git (it's in .gitignore)
+- **Secure your tokens**: Use strong, unique tokens for Renovate
 - Keep Docker and all images up to date
 - Consider using Docker secrets for sensitive data in production
 - Restrict PostgreSQL access to the Forgejo network only (already configured)
 - Review Forgejo's security settings in the admin panel
 - Consider enabling 2FA for administrator accounts
+- Limit Renovate bot permissions to only repositories it needs to update
 
 ## Contributing
 
