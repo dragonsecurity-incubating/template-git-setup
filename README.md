@@ -194,6 +194,10 @@ template-git-setup/
 ├── setup-directories.sh   # Script to create required directories
 ├── register-runner.sh     # Script to register runners
 ├── start.sh               # Convenience script to start everything
+├── auditlm/               # AuditLM Dockerfiles
+│   ├── Dockerfile         # Main AuditLM service image
+│   └── analysis/          # Custom analysis container
+│       └── Dockerfile     # Minimal analysis environment
 ├── runners/
 │   ├── runner1/           # Runner 1 configuration and data
 │   │   ├── .runner        # Registration file (required)
