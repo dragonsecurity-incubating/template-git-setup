@@ -30,8 +30,10 @@ template-git-setup/
 ├── setup-directories.sh    # Script to create runner directories
 ├── register-runner.sh      # Script to register runners with Forgejo
 ├── start.sh                # Convenience script to start services
-├── auditlm/                # AuditLM Dockerfile
-│   └── Dockerfile
+├── auditlm/                # AuditLM Dockerfiles
+│   ├── Dockerfile          # Main AuditLM service image
+│   └── analysis/           # Custom analysis container image
+│       └── Dockerfile      # Minimal analysis environment
 ├── runners/                # Runner configuration (created by setup)
 │   ├── runner1/
 │   └── runner2/
@@ -216,6 +218,77 @@ All AI services require separate bot user accounts with specific permissions:
    - Update `--model` parameter
    - Restart: `docker compose restart auditlm`
 
+### Building and Using Custom AuditLM Analysis Image
+
+AuditLM performs code analysis inside ephemeral Docker containers. The `--image` parameter in the auditlm service configuration specifies which Docker image to use for these analysis containers.
+
+**Default Analysis Image**: `rust:1-trixie`
+- Full Rust development environment (~1.5GB)
+- Includes Rust compiler, Cargo, and build tools
+- Suitable for Rust projects or when compilation is needed
+
+**Custom Analysis Image**: `auditlm/analysis/Dockerfile`
+- Minimal Debian Bookworm Slim base (~150MB)
+- Only includes git and ca-certificates
+- Suitable for lightweight analysis or non-compiled languages
+- Located at `auditlm/analysis/Dockerfile` in the repository
+
+**Building the Custom Analysis Image**:
+
+1. **Build locally**:
+   ```bash
+   docker build -t auditlm-analysis:latest ./auditlm/analysis/
+   ```
+
+2. **Build with custom name**:
+   ```bash
+   docker build -t my-registry/auditlm-analysis:v1.0 ./auditlm/analysis/
+   ```
+
+3. **Push to registry** (optional, for multi-host deployments):
+   ```bash
+   docker push my-registry/auditlm-analysis:v1.0
+   ```
+
+**Using the Custom Analysis Image**:
+
+1. Build the image (see above)
+2. Update `docker-compose.yml`:
+   ```yaml
+   auditlm:
+     command: >
+       forgejo
+       --model "qwen2.5-coder:7b-instruct"
+       --socket "/var/run/docker.sock"
+       --base-url "http://ollama:11434/v1"
+       --forgejo-url "http://forgejo:3000"
+       --image "auditlm-analysis:latest"  # Changed from rust:1-trixie
+   ```
+3. Restart: `docker compose restart auditlm`
+
+**Customizing the Analysis Image**:
+
+Edit `auditlm/analysis/Dockerfile` to add language-specific tools:
+
+```dockerfile
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git ca-certificates \
+    # Add tools for your tech stack:
+    python3 python3-pip \
+    nodejs npm \
+    ruby \
+  && rm -rf /var/lib/apt/lists/*
+WORKDIR /work
+```
+
+**Best Practices**:
+- Use the minimal image for faster analysis container startup
+- Add only necessary tools to keep image size small
+- Use language-specific base images (node:20, python:3.11) for complex projects
+- Tag images with versions for reproducibility
+- Test the image locally before deploying
+
 ### Configuring MCP Security
 
 1. **Generate basic auth password**:
@@ -273,6 +346,8 @@ All AI services require separate bot user accounts with specific permissions:
    - Ensure bot user has repo access
    - Review logs: `docker compose logs auditlm`
    - Verify `AUDITLM_TOKEN` is set in `.env`
+   - Check analysis image exists: `docker images | grep auditlm-analysis` (if using custom image)
+   - Verify analysis image has required tools for your project
 
 7. **MCP authentication failing**:
    - Verify basic auth credentials match Caddyfile

@@ -473,6 +473,59 @@ docker exec -it forgejo-ollama ollama rm qwen2.5-coder:7b-instruct
 - Examples: `node:20-alpine`, `python:3.11-slim`, `golang:1.21`, `openjdk:17`
 - The image should have necessary build tools for your project
 
+**Custom Analysis Image**:
+
+This repository includes a minimal analysis container (`auditlm/analysis/Dockerfile`) that provides a lightweight alternative to language-specific images. It's based on Debian Bookworm Slim with only git and ca-certificates installed.
+
+**When to use the custom analysis image**:
+- For lightweight analysis without heavy language toolchains
+- When you only need git operations and basic file analysis
+- To minimize image size and startup time
+- For projects that don't require compilation or building
+
+**Building the custom analysis image**:
+```bash
+# Build the image with a tag
+docker build -t auditlm-analysis:latest ./auditlm/analysis/
+
+# Or with a specific name
+docker build -t my-org/auditlm-analysis:v1.0 ./auditlm/analysis/
+```
+
+**Using the custom analysis image**:
+
+1. Build the image first (see above)
+2. Update `docker-compose.yml` to use your custom image:
+   ```yaml
+   auditlm:
+     command: >
+       forgejo
+       --model "qwen2.5-coder:7b-instruct"
+       --socket "/var/run/docker.sock"
+       --base-url "http://ollama:11434/v1"
+       --forgejo-url "http://forgejo:3000"
+       --image "auditlm-analysis:latest"  # Use your custom image
+   ```
+3. Restart the service:
+   ```bash
+   docker compose restart auditlm
+   ```
+
+**Customizing the analysis image**:
+
+You can modify `auditlm/analysis/Dockerfile` to add tools specific to your needs:
+```dockerfile
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git ca-certificates \
+    # Add your custom tools here:
+    python3 nodejs npm \
+  && rm -rf /var/lib/apt/lists/*
+WORKDIR /work
+```
+
+Then rebuild and update the `--image` parameter in docker-compose.yml.
+
 **Troubleshooting**:
 ```bash
 # Check AuditLM logs
