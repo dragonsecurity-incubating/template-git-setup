@@ -133,7 +133,7 @@ services:
       - forgejo_net
 
   renovate:
-    image: renovate/renovate:latest
+    image: renovate/renovate:39@sha256:99198d61d3c837085bdc94e0eafb1d57de3ecbfdc2e5e994817e589f71eacd16
     container_name: renovate
     restart: unless-stopped
     environment:
@@ -159,7 +159,16 @@ services:
       - renovate_cache:/tmp/renovate
     # Run on a schedule. Example: daily at 02:15
     command: >
-      sh -lc 'while true; do renovate || true; sleep 600; done'
+      sh -lc 'while true; do 
+        echo "Starting Renovate run at $(date)"; 
+        renovate; 
+        EXIT_CODE=$?; 
+        if [ $EXIT_CODE -ne 0 ]; then 
+          echo "Renovate exited with code $EXIT_CODE at $(date)"; 
+        fi; 
+        echo "Sleeping for 600 seconds..."; 
+        sleep 600; 
+      done'
 
 networks:
   forgejo_net:

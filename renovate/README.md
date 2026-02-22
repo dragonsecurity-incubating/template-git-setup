@@ -6,6 +6,8 @@ This directory contains the Renovate bot configuration file.
 
 This is the global Renovate configuration that applies to all repositories the bot scans.
 
+The configuration uses `process.env.RENOVATE_ENDPOINT` to read the endpoint from the environment variable set in docker-compose.yml, with a fallback to `https://git.example.com/api/v1` for clarity.
+
 **Important**: After changing this file, restart the Renovate service:
 ```bash
 docker compose restart renovate

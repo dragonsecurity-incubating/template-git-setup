@@ -1,6 +1,6 @@
 module.exports = {
   platform: 'forgejo',
-  endpoint: 'https://git.example.com/api/v1',
+  endpoint: process.env.RENOVATE_ENDPOINT || 'https://git.example.com/api/v1',
   autodiscover: true,
   // optional: helps on first run
   onboarding: true,
