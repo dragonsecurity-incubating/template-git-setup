@@ -1,6 +1,7 @@
 module.exports = {
   platform: 'forgejo',
-  endpoint: process.env.RENOVATE_ENDPOINT || 'https://git.example.com/api/v1',
+  // RENOVATE_ENDPOINT must be set in docker-compose.yml to your Forgejo instance URL
+  endpoint: process.env.RENOVATE_ENDPOINT,
   autodiscover: true,
   // optional: helps on first run
   onboarding: true,
