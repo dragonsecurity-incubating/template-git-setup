@@ -47,6 +47,9 @@ services:
       FORGEJO__server__SSH_DOMAIN: git.example.com
       FORGEJO__server__SSH_PORT: 2222
       FORGEJO__server__SSH_LISTEN_PORT: 22
+
+      FORGEJO__packages__ENABLED: "true"
+      FORGEJO__packages__CONTAINER__ENABLED: "true"
     expose:
       - "3000"  # only to other containers
     ports:
@@ -129,6 +132,44 @@ services:
     networks:
       - forgejo_net
 
+  renovate:
+    image: renovate/renovate:39@sha256:99198d61d3c837085bdc94e0eafb1d57de3ecbfdc2e5e994817e589f71eacd16
+    container_name: renovate
+    restart: unless-stopped
+    environment:
+      # Renovate auth + platform
+      RENOVATE_TOKEN: "${RENOVATE_TOKEN}"           # bot PAT
+      RENOVATE_GITHUB_TOKEN: "${RENOVATE_GITHUB_TOKEN}" # access to github
+      RENOVATE_PLATFORM: "forgejo"
+      RENOVATE_ENDPOINT: "https://git.example.com/api/v1"
+
+      # Logging (handy at first)
+      LOG_LEVEL: "info"
+
+      # Where the global config lives inside the container
+      RENOVATE_CONFIG_FILE: "/tmp/renovate-config.js"
+
+      RENOVATE_GIT_AUTHOR: "Renovate Bot <renovate-bot@example.com>"
+      GIT_AUTHOR_NAME: "Renovate Bot"
+      GIT_AUTHOR_EMAIL: "renovate-bot@example.com"
+      GIT_COMMITTER_NAME: "Renovate Bot"
+      GIT_COMMITTER_EMAIL: "renovate-bot@example.com"
+    volumes:
+      - ./renovate/config.js:/tmp/renovate-config.js:ro
+      - renovate_cache:/tmp/renovate
+    # Run on a schedule. Example: daily at 02:15
+    command: >
+      sh -lc 'while true; do 
+        echo "Starting Renovate run at $(date)"; 
+        renovate; 
+        EXIT_CODE=$?; 
+        if [ $EXIT_CODE -ne 0 ]; then 
+          echo "Renovate exited with code $EXIT_CODE at $(date)"; 
+        fi; 
+        echo "Sleeping for 600 seconds..."; 
+        sleep 600; 
+      done'
+
 networks:
   forgejo_net:
 
@@ -137,3 +178,4 @@ volumes:
   forgejo_data:
   caddy_data:
   caddy_config:
+  renovate_cache:

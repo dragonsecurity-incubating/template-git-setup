@@ -24,6 +24,12 @@ mkdir -p runners/runner2
 
 echo -e "${GREEN}✓${NC} Created runners/runner1"
 echo -e "${GREEN}✓${NC} Created runners/runner2"
+
+# Create renovate directory
+echo "Creating renovate directory..."
+mkdir -p renovate
+
+echo -e "${GREEN}✓${NC} Created renovate/"
 echo ""
 
 # Set ownership to UID/GID 1001 (used by forgejo-runner container)
@@ -55,19 +61,21 @@ echo ""
 
 # Verify setup
 echo "Verifying directory structure..."
-if [ -d "runners/runner1" ] && [ -d "runners/runner2" ]; then
-    echo -e "${GREEN}✓${NC} All runner directories exist"
+if [ -d "runners/runner1" ] && [ -d "runners/runner2" ] && [ -d "renovate" ]; then
+    echo -e "${GREEN}✓${NC} All required directories exist"
     echo ""
     echo "Directory structure:"
     ls -la runners/ | grep -E "^d.*runner[12]" || true
+    ls -la | grep -E "^d.*renovate" || true
     echo ""
     echo -e "${GREEN}Setup complete!${NC}"
     echo ""
     echo "Next steps:"
     echo "  1. Configure your domain in docker-compose.yml and Caddyfile"
-    echo "  2. Run: docker compose up -d"
-    echo "  3. Access Forgejo web UI and complete initial setup"
-    echo "  4. Register runners with: ./register-runner.sh runner1"
+    echo "  2. Copy .env.example to .env and add your tokens"
+    echo "  3. Run: docker compose up -d"
+    echo "  4. Access Forgejo web UI and complete initial setup"
+    echo "  5. Register runners with: ./register-runner.sh runner1"
 else
     echo -e "${YELLOW}⚠${NC} Warning: Some directories may not have been created properly"
     exit 1

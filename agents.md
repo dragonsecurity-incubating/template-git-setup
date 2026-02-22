@@ -9,9 +9,10 @@ This repository provides a production-ready Docker Compose setup for running **F
 - Forgejo server with PostgreSQL database
 - Caddy reverse proxy with automatic HTTPS
 - CI/CD runners (Docker-in-Docker) for Forgejo Actions
+- Renovate bot for automated dependency updates
 - Setup and management scripts
 
-**Target users**: System administrators, DevOps engineers, and development teams who want to self-host their Git repositories with integrated CI/CD.
+**Target users**: System administrators, DevOps engineers, and development teams who want to self-host their Git repositories with integrated CI/CD and automated dependency management.
 
 ## Repository Structure
 
@@ -19,14 +20,17 @@ This repository provides a production-ready Docker Compose setup for running **F
 template-git-setup/
 ├── docker-compose.yml       # Main Docker Compose configuration
 ├── Caddyfile               # Caddy reverse proxy config
+├── .env.example            # Template for environment variables
 ├── README.md               # User-facing documentation
 ├── agents.md               # This file - AI collaboration guide
 ├── setup-directories.sh    # Script to create runner directories
 ├── register-runner.sh      # Script to register runners with Forgejo
 ├── start.sh                # Convenience script to start services
-└── runners/                # Runner configuration (created by setup)
-    ├── runner1/
-    └── runner2/
+├── runners/                # Runner configuration (created by setup)
+│   ├── runner1/
+│   └── runner2/
+└── renovate/               # Renovate bot configuration
+    └── config.js
 ```
 
 ## Key Technologies
@@ -37,6 +41,7 @@ template-git-setup/
 - **Caddy**: Web server with automatic HTTPS
 - **Forgejo Actions**: CI/CD system (GitHub Actions compatible)
 - **Docker-in-Docker (dind)**: Enables runners to execute containerized jobs
+- **Renovate**: Automated dependency update bot
 
 ## Architecture Overview
 
@@ -65,6 +70,12 @@ template-git-setup/
    - Connect to dind containers for Docker operations
    - Must be registered with Forgejo to become active
 
+6. **renovate**: Automated dependency update bot
+   - Scans repositories for outdated dependencies
+   - Creates pull requests with updates
+   - Runs on a schedule (every 10 minutes by default)
+   - Requires bot user PAT and optional GitHub token
+
 ### Networks & Volumes
 
 - **forgejo_net**: Internal network for service communication
@@ -72,6 +83,7 @@ template-git-setup/
 - **forgejo_data**: Persistent Forgejo data (repositories, config)
 - **caddy_data**: Persistent Caddy data (certificates)
 - **caddy_config**: Persistent Caddy configuration
+- **renovate_cache**: Persistent Renovate cache (reduces API calls)
 
 ## Common Tasks
 
@@ -110,6 +122,22 @@ labels:
   - 'python:docker://python:3.11'
 ```
 
+### Configuring Renovate
+
+1. **Create bot user in Forgejo**: Register a user and generate PAT with repo access
+2. **Create GitHub token**: For fetching release notes (optional but recommended)
+3. **Set environment variables**: Create `.env` file from `.env.example`
+4. **Edit renovate/config.js**: Customize behavior (scan frequency, grouping, automerge, etc.)
+5. **Start service**: `docker compose up -d renovate`
+6. **Check logs**: `docker compose logs -f renovate`
+
+Key configuration options:
+- `autodiscover`: Auto-find all accessible repositories
+- `onboarding`: Creates initial PR to configure per-repo settings
+- `prHourlyLimit`: Rate limit PRs to avoid spam
+- `prConcurrentLimit`: Max open PRs at once
+- `schedule`: When to run scans (cron-like syntax)
+
 ### Troubleshooting Common Issues
 
 1. **Runner not picking up jobs**:
@@ -126,6 +154,13 @@ labels:
    - Ensure PostgreSQL is healthy: `docker compose ps postgres`
    - Check password matches in both services
    - Verify network connectivity
+
+4. **Renovate not creating PRs**:
+   - Check logs: `docker compose logs renovate`
+   - Verify bot user has repo access
+   - Ensure tokens are set in `.env`
+   - Check `RENOVATE_ENDPOINT` matches Forgejo URL
+   - Verify renovate/config.js exists and is valid
 
 ## Development Guidelines
 
@@ -156,11 +191,14 @@ labels:
 ## Security Considerations
 
 1. **Change default passwords**: Never commit real passwords
-2. **UID/GID 1001**: Runners should not run as root
-3. **Privileged containers**: dind containers require privileged mode (known limitation)
-4. **Network isolation**: Keep forgejo_net internal
-5. **HTTPS required**: Caddy handles this automatically
-6. **Update regularly**: Keep all images up to date
+2. **Protect .env file**: Contains sensitive tokens, never commit (in .gitignore)
+3. **Limit bot permissions**: Renovate bot should only have access to repos it needs
+4. **UID/GID 1001**: Runners should not run as root
+5. **Privileged containers**: dind containers require privileged mode (known limitation)
+6. **Network isolation**: Keep forgejo_net internal
+7. **HTTPS required**: Caddy handles this automatically
+8. **Update regularly**: Keep all images up to date, Renovate helps with this
+9. **Use digest pins**: Images use @sha256 digests for reproducibility
 
 ## Testing Changes
 
@@ -180,6 +218,7 @@ labels:
 - [ ] Caddy serves HTTPS correctly
 - [ ] Runners can be registered
 - [ ] Runners pick up and execute jobs
+- [ ] Renovate starts and scans repositories (if configured)
 - [ ] Scripts run without errors
 - [ ] Documentation reflects changes
 
@@ -205,6 +244,9 @@ labels:
 
 - [Forgejo Documentation](https://forgejo.org/docs/latest/)
 - [Forgejo Actions](https://forgejo.org/docs/latest/user/actions/)
+- [Forgejo Packages](https://forgejo.org/docs/latest/user/packages/)
+- [Renovate Documentation](https://docs.renovatebot.com/)
+- [Renovate Configuration Options](https://docs.renovatebot.com/configuration-options/)
 - [Docker Compose Reference](https://docs.docker.com/compose/compose-file/)
 - [Caddy Documentation](https://caddyserver.com/docs/)
 - [Docker-in-Docker Considerations](https://hub.docker.com/_/docker)
@@ -212,6 +254,7 @@ labels:
 ## Version History
 
 - **2024**: Initial setup with Forgejo 13, PostgreSQL 18, 2 runners
+- **2026**: Updated to Forgejo 14, added Renovate bot, enabled package registry
 - Document created for AI collaboration with comprehensive technical context
 
 ---
