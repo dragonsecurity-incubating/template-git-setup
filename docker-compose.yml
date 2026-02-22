@@ -139,6 +139,14 @@ services:
     volumes:
       - ollama_data:/root/.ollama
     # If you have an NVIDIA GPU, you'd add the runtime/devices bits here.
+    # CPU/Thread Allocation (uncomment to enable):
+    # cpus: 4.0                    # Limit to 4 CPUs (accepts decimals like 2.5)
+    # cpuset_cpus: "0-3"           # Pin to specific CPU cores (0-indexed)
+    # cpu_shares: 2048             # Relative CPU priority (default: 1024)
+    # Environment variables for Ollama performance tuning:
+    # environment:
+    #   - OLLAMA_NUM_PARALLEL=4    # Number of parallel requests (default: auto)
+    #   - OLLAMA_MAX_LOADED_MODELS=1  # Max models in memory (default: 1)
     expose:
       - "11434"
     networks:

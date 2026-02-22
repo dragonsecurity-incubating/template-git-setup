@@ -76,7 +76,18 @@ The setup uses **three separate bot users**, each with minimal permissions requi
 - The bot uses Docker-in-Docker to run sandboxed analysis containers
 - You can customize the AI model and analysis image in `docker-compose.yml`
 - Default model: `qwen2.5-coder:7b-instruct`
-- Default analysis image: `rust:1-trixie`
+- Default analysis image: `rust:1-trixie` (full Rust environment)
+- Custom analysis image: Build from `auditlm/analysis/Dockerfile` for a minimal environment
+
+**Analysis Container Image Options**:
+1. **Use default image** (`rust:1-trixie`): Good for Rust projects or when compilation is needed
+2. **Build custom image**: `docker build -t auditlm-analysis:latest ./auditlm/analysis/`
+   - Minimal Debian with git and ca-certificates
+   - Customize by editing `auditlm/analysis/Dockerfile` to add tools
+   - Update `--image` parameter in docker-compose.yml to use custom image
+3. **Use language-specific image**: e.g., `node:20-alpine`, `python:3.11-slim`, `golang:1.21`
+
+See README.md for detailed instructions on building and using custom analysis images.
 
 **LLM Requirements**:
 - Ensure the Ollama service has the specified model downloaded
