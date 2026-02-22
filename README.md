@@ -401,6 +401,37 @@ ollama:
   # ... rest of config
 ```
 
+**CPU/Thread Allocation** (optional):
+
+By default, Ollama uses all available CPUs. To allocate more (or limit) CPU resources, add these settings to the ollama service in `docker-compose.yml`:
+
+```yaml
+ollama:
+  image: ollama/ollama:latest
+  cpus: 4.0                    # Allocate 4 CPUs (use decimals like 2.5 for fractional allocation)
+  # Or pin to specific CPU cores for better performance:
+  cpuset_cpus: "0-3"           # Use CPU cores 0 through 3
+  # Optional: Increase CPU priority
+  cpu_shares: 2048             # Double the default priority (default is 1024)
+  # ... rest of config
+```
+
+**Performance Tuning Environment Variables**:
+
+You can also configure Ollama's behavior with environment variables:
+```yaml
+ollama:
+  environment:
+    - OLLAMA_NUM_PARALLEL=4      # Number of parallel requests (default: auto-detected)
+    - OLLAMA_MAX_LOADED_MODELS=1 # Max models kept in memory (default: 1)
+  # ... rest of config
+```
+
+**When to allocate more CPUs**:
+- **Large models**: Models like 13B or 70B benefit from more CPU cores
+- **Multiple requests**: If AuditLM handles many repositories simultaneously
+- **Faster inference**: More CPUs reduce response time for code analysis
+
 **Available Models**:
 - `qwen2.5-coder:7b-instruct` - Default, optimized for code (7GB)
 - `codellama:7b` - Meta's code-focused model (3.8GB)

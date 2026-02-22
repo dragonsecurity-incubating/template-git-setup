@@ -91,6 +91,7 @@ template-git-setup/
    - Runs AI models locally (e.g., Qwen, Llama, CodeLlama)
    - Provides API endpoint for AuditLM
    - Supports GPU acceleration (optional)
+   - Supports CPU resource allocation for performance tuning
    - No external API calls - all processing happens locally
 
 8. **auditlm**: AI-powered code auditing service
@@ -217,6 +218,72 @@ All AI services require separate bot user accounts with specific permissions:
    - Edit `docker-compose.yml` auditlm service
    - Update `--model` parameter
    - Restart: `docker compose restart auditlm`
+
+### Configuring Ollama CPU Resources
+
+By default, Ollama uses all available CPU cores. For production deployments or to optimize performance, you can allocate specific CPU resources.
+
+**CPU Allocation Options**:
+
+1. **Limit total CPUs** (recommended for shared hosts):
+   ```yaml
+   ollama:
+     cpus: 4.0  # Allocate 4 CPU cores (accepts decimals: 2.5, 6.0, etc.)
+   ```
+
+2. **Pin to specific CPU cores** (optimal for NUMA systems):
+   ```yaml
+   ollama:
+     cpuset_cpus: "0-3"  # Use cores 0, 1, 2, 3
+     # Or: cpuset_cpus: "0,2,4,6"  # Use specific cores
+   ```
+
+3. **Increase CPU priority** (when competing with other services):
+   ```yaml
+   ollama:
+     cpu_shares: 2048  # Double priority (default: 1024)
+   ```
+
+4. **Ollama-specific environment variables**:
+   ```yaml
+   ollama:
+     environment:
+       - OLLAMA_NUM_PARALLEL=4      # Parallel request handling
+       - OLLAMA_MAX_LOADED_MODELS=1 # Models kept in memory
+   ```
+
+**Complete Example**:
+```yaml
+ollama:
+  image: ollama/ollama:latest
+  container_name: forgejo-ollama
+  restart: unless-stopped
+  cpus: 8.0                        # Allocate 8 CPU cores
+  cpuset_cpus: "0-7"               # Pin to cores 0-7
+  cpu_shares: 2048                 # Higher priority
+  environment:
+    - OLLAMA_NUM_PARALLEL=4        # Handle 4 parallel requests
+    - OLLAMA_MAX_LOADED_MODELS=2   # Keep 2 models in memory
+  volumes:
+    - ollama_data:/root/.ollama
+  expose:
+    - "11434"
+  networks:
+    - forgejo_net
+```
+
+**Performance Considerations**:
+- **More CPUs = faster inference**: Larger models (13B, 70B) benefit significantly
+- **NUMA awareness**: Use `cpuset_cpus` to pin to CPUs on the same NUMA node
+- **Memory bandwidth**: Ensure adequate RAM (8GB+ per model)
+- **Parallel processing**: `OLLAMA_NUM_PARALLEL` increases throughput but uses more memory
+- **Multiple models**: `OLLAMA_MAX_LOADED_MODELS` trades memory for model switching speed
+
+**When to allocate more CPUs**:
+- Running large models (13B, 34B, 70B parameters)
+- High request volume from AuditLM analyzing many repositories
+- Multiple concurrent AuditLM analysis jobs
+- Desire for faster response times in code review
 
 ### Building and Using Custom AuditLM Analysis Image
 
