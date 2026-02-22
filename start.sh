@@ -23,6 +23,24 @@ if [ ! -f "docker-compose.yml" ]; then
     exit 1
 fi
 
+# Check if .env file exists (for Renovate)
+if [ ! -f ".env" ]; then
+    echo -e "${YELLOW}⚠${NC} .env file not found (required for Renovate bot)"
+    echo ""
+    echo "If you want to use Renovate for automated dependency updates:"
+    echo "  1. Copy .env.example to .env"
+    echo "  2. Edit .env and add your tokens"
+    echo ""
+    echo "Otherwise, you can continue without Renovate (it will be skipped)"
+    echo ""
+    read -p "Continue without Renovate? [Y/n] " -n 1 -r
+    echo ""
+    if [[ $REPLY =~ ^[Nn]$ ]]; then
+        echo "Please create .env file before starting"
+        exit 1
+    fi
+fi
+
 # Check if directories exist
 if [ ! -d "runners/runner1" ] || [ ! -d "runners/runner2" ]; then
     echo -e "${YELLOW}⚠${NC} Runner directories not found"
@@ -58,5 +76,8 @@ echo ""
 echo "Next steps:"
 echo "  - Complete initial Forgejo setup via web UI"
 echo "  - Register runners: ./register-runner.sh runner1"
+if [ ! -f ".env" ]; then
+    echo "  - Optional: Set up Renovate by creating .env (see .env.example)"
+fi
 echo ""
 echo "View logs: docker compose logs -f"
