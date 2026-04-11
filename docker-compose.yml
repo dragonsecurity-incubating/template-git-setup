@@ -169,7 +169,7 @@ services:
       - forgejo_net
 
   forgejo-mcp:
-    image: ronmi/forgejo-mcp:latest@sha256:9fad02dfad4a61be3e9c40e1e95d2b2c28a44aa3e88f5c6db7a2ccde50f52e53
+    image: ronmi/forgejo-mcp:latest@sha256:dc064b964c2c473310f2d0c7da008223f753224e5c84bf84fe5e268813d43464
     container_name: forgejo-mcp
     restart: unless-stopped
     depends_on:
