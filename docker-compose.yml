@@ -62,7 +62,7 @@ services:
       - forgejo_net
 
   caddy:
-    image: caddy:2@sha256:1e40b251ca9639ead7b5cd2cedcc8765adfbabb99450fe23f130eefabf50f4bc
+    image: caddy:2@sha256:22e1d921a7dd98ea722ebd6819de785fd71abdab7f7fed8a2378e96d29bb923a
     container_name: forgejo-caddy
     restart: unless-stopped
     depends_on:
