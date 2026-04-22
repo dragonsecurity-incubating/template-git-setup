@@ -88,7 +88,7 @@ services:
       - forgejo_net
 
   runner1:
-    image: data.forgejo.org/forgejo/runner:12@sha256:afeaf4c2bd52d9cc2c42090ce559c1f4b7061ded7afd7023c089a5b3b7109025
+    image: data.forgejo.org/forgejo/runner:12@sha256:2860af6a7fa5521b2cdb26a14545c083ffd06b2528dbfc470cfec39a0b6bde39
     container_name: forgejo-runner1
     restart: unless-stopped
     depends_on:
@@ -115,7 +115,7 @@ services:
       - forgejo_net
 
   runner2:
-    image: data.forgejo.org/forgejo/runner:12@sha256:afeaf4c2bd52d9cc2c42090ce559c1f4b7061ded7afd7023c089a5b3b7109025
+    image: data.forgejo.org/forgejo/runner:12@sha256:2860af6a7fa5521b2cdb26a14545c083ffd06b2528dbfc470cfec39a0b6bde39
     container_name: forgejo-runner2
     restart: unless-stopped
     depends_on:
