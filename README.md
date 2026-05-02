@@ -194,6 +194,10 @@ template-git-setup/
 ├── setup-directories.sh   # Script to create required directories
 ├── register-runner.sh     # Script to register runners
 ├── start.sh               # Convenience script to start everything
+├── auditlm/               # AuditLM Dockerfiles
+│   ├── Dockerfile         # Main AuditLM service image
+│   └── analysis/          # Custom analysis container
+│       └── Dockerfile     # Minimal analysis environment
 ├── runners/
 │   ├── runner1/           # Runner 1 configuration and data
 │   │   ├── .runner        # Registration file (required)
@@ -397,6 +401,37 @@ ollama:
   # ... rest of config
 ```
 
+**CPU/Thread Allocation** (optional):
+
+By default, Ollama uses all available CPUs. To allocate more (or limit) CPU resources, add these settings to the ollama service in `docker-compose.yml`:
+
+```yaml
+ollama:
+  image: ollama/ollama:latest
+  cpus: 4.0                    # Allocate 4 CPUs (use decimals like 2.5 for fractional allocation)
+  # Or pin to specific CPU cores for better performance:
+  cpuset_cpus: "0-3"           # Use CPU cores 0 through 3
+  # Optional: Increase CPU priority
+  cpu_shares: 2048             # Double the default priority (default is 1024)
+  # ... rest of config
+```
+
+**Performance Tuning Environment Variables**:
+
+You can also configure Ollama's behavior with environment variables:
+```yaml
+ollama:
+  environment:
+    - OLLAMA_NUM_PARALLEL=4      # Number of parallel requests (default: auto-detected)
+    - OLLAMA_MAX_LOADED_MODELS=1 # Max models kept in memory (default: 1)
+  # ... rest of config
+```
+
+**When to allocate more CPUs**:
+- **Large models**: Models like 13B or 70B benefit from more CPU cores
+- **Multiple requests**: If AuditLM handles many repositories simultaneously
+- **Faster inference**: More CPUs reduce response time for code analysis
+
 **Available Models**:
 - `qwen2.5-coder:7b-instruct` - Default, optimized for code (7GB)
 - `codellama:7b` - Meta's code-focused model (3.8GB)
@@ -472,6 +507,59 @@ docker exec -it forgejo-ollama ollama rm qwen2.5-coder:7b-instruct
 - Change the `--image` parameter to match your project's language
 - Examples: `node:20-alpine`, `python:3.11-slim`, `golang:1.21`, `openjdk:17`
 - The image should have necessary build tools for your project
+
+**Custom Analysis Image**:
+
+This repository includes a minimal analysis container (`auditlm/analysis/Dockerfile`) that provides a lightweight alternative to language-specific images. It's based on Debian Bookworm Slim with only git and ca-certificates installed.
+
+**When to use the custom analysis image**:
+- For lightweight analysis without heavy language toolchains
+- When you only need git operations and basic file analysis
+- To minimize image size and startup time
+- For projects that don't require compilation or building
+
+**Building the custom analysis image**:
+```bash
+# Build the image with a tag
+docker build -t auditlm-analysis:latest ./auditlm/analysis/
+
+# Or with a specific name
+docker build -t my-org/auditlm-analysis:v1.0 ./auditlm/analysis/
+```
+
+**Using the custom analysis image**:
+
+1. Build the image first (see above)
+2. Update `docker-compose.yml` to use your custom image:
+   ```yaml
+   auditlm:
+     command: >
+       forgejo
+       --model "qwen2.5-coder:7b-instruct"
+       --socket "/var/run/docker.sock"
+       --base-url "http://ollama:11434/v1"
+       --forgejo-url "http://forgejo:3000"
+       --image "auditlm-analysis:latest"  # Use your custom image
+   ```
+3. Restart the service:
+   ```bash
+   docker compose restart auditlm
+   ```
+
+**Customizing the analysis image**:
+
+You can modify `auditlm/analysis/Dockerfile` to add tools specific to your needs:
+```dockerfile
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git ca-certificates \
+    # Add your custom tools here:
+    python3 nodejs npm \
+  && rm -rf /var/lib/apt/lists/*
+WORKDIR /work
+```
+
+Then rebuild and update the `--image` parameter in docker-compose.yml.
 
 **Troubleshooting**:
 ```bash
