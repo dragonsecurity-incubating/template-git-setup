@@ -133,7 +133,7 @@ services:
       - forgejo_net
 
   ollama:
-    image: ollama/ollama:latest@sha256:bfc9c6d53cc6989aa5131a6fde6b162b2802d4d337657f3253b5f69579bddeee
+    image: ollama/ollama:latest@sha256:c484b703176aa19dfc0a54cbfb60ab8094b38faa04283fb77eba1d33319e5eca
     container_name: forgejo-ollama
     restart: unless-stopped
     volumes:
