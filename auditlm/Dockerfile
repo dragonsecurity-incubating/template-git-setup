@@ -1,4 +1,4 @@
-FROM rust:1-bookworm@sha256:4a8dc0e32ec234e6c76e0047749d84bf742eb165e8af061d8eb65da532403ce7 AS build
+FROM rust:1-bookworm@sha256:828077e0f5ed0401fbd9cb5b4d5dedca23bd13c7fe032f3e8b7313e7acd2a57f AS build
 WORKDIR /src
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
